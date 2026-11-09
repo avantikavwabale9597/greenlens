@@ -1,7 +1,69 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import MetricCard from "./MetricCard";
 
 const MainDashboard = () => {
+  // State to hold our live data
+  const [loading, setLoading] = useState(false);
+  const [benchmarkData, setBenchmarkData] = useState({
+    energy_kwh: 0.42,
+    co2e_g: 168,
+    hotspots_count: 7,
+    cpu_before: 90,
+    cpu_after: 40,
+    memory_before: 80,
+    memory_after: 60,
+    runtime_before: 95,
+    runtime_after: 30,
+  });
+  const [hotspots, setHotspots] = useState([
+    {
+      id: 1,
+      name: "Nested DB query loop",
+      file: "api/users/analytics.py:42",
+      color: "red-500",
+    },
+    {
+      id: 2,
+      name: "Redundant re-computation",
+      file: "services/report_gen.py:118",
+      color: "orange-400",
+    },
+    {
+      id: 3,
+      name: "Unbounded cache growth",
+      file: "utils/cache_manager.py:25",
+      color: "orange-400",
+    },
+    {
+      id: 4,
+      name: "Inefficient JSON serialization",
+      file: "models/base.py:89",
+      color: "yellow-400",
+    },
+  ]);
+
+  // Function to fetch data from our FastAPI backend
+  const fetchLiveData = async () => {
+    setLoading(true);
+    try {
+      const benchRes = await fetch("http://localhost:8000/api/benchmark");
+      const benchData = await benchRes.json();
+      setBenchmarkData(benchData);
+
+      const spotRes = await fetch("http://localhost:8000/api/hotspots");
+      const spotData = await spotRes.json();
+      setHotspots(spotData);
+    } catch (error) {
+      console.error("Error fetching live data:", error);
+    }
+    setLoading(false);
+  };
+
+  // Fetch data automatically when the dashboard first loads
+  useEffect(() => {
+    fetchLiveData();
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col overflow-y-auto bg-parchment">
       <div className="p-10 max-w-5xl w-full mx-auto">
@@ -13,12 +75,18 @@ const MainDashboard = () => {
               <span className="font-medium text-onyx/80">greenlens-api</span>
             </h2>
             <p className="text-sm text-onyx/60 mt-2">
-              Last Benchmark Run: 2 minutes ago
+              {loading
+                ? "Running benchmark..."
+                : "Last Benchmark Run: Just now"}
             </p>
           </div>
-          <button className="bg-olive hover:bg-[#3D5226] text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm flex items-center">
+          <button
+            onClick={fetchLiveData}
+            disabled={loading}
+            className={`${loading ? "bg-onyx/50" : "bg-olive hover:bg-[#3D5226]"} text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm flex items-center`}
+          >
             <svg
-              className="w-4 h-4 mr-2"
+              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -30,7 +98,7 @@ const MainDashboard = () => {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            Re-benchmark
+            {loading ? "Processing..." : "Re-benchmark"}
           </button>
         </div>
 
@@ -38,7 +106,7 @@ const MainDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <MetricCard
             title="Estimated Energy"
-            value="0.42"
+            value={benchmarkData.energy_kwh}
             unit="kWh"
             trend="-12%"
             icon={
@@ -59,7 +127,7 @@ const MainDashboard = () => {
           />
           <MetricCard
             title="Estimated CO2e"
-            value="168"
+            value={benchmarkData.co2e_g}
             unit="g"
             trend="-14%"
             icon={
@@ -80,7 +148,7 @@ const MainDashboard = () => {
           />
           <MetricCard
             title="Hotspots Detected"
-            value="7"
+            value={benchmarkData.hotspots_count}
             unit=""
             icon={
               <svg
@@ -120,17 +188,35 @@ const MainDashboard = () => {
           </h3>
 
           <div className="flex justify-around items-end h-32 border-b border-black/10 pb-2 mb-6">
-            <div className="flex space-x-2 items-end h-full">
-              <div className="w-4 bg-[#F28B82] h-full rounded-t-sm"></div>
-              <div className="w-4 bg-matcha h-[40%] rounded-t-sm"></div>
+            <div className="flex space-x-2 items-end h-full transition-all duration-500">
+              <div
+                className="w-4 bg-[#F28B82] rounded-t-sm transition-all duration-500"
+                style={{ height: `${benchmarkData.cpu_before}%` }}
+              ></div>
+              <div
+                className="w-4 bg-matcha rounded-t-sm transition-all duration-500"
+                style={{ height: `${benchmarkData.cpu_after}%` }}
+              ></div>
             </div>
-            <div className="flex space-x-2 items-end h-full">
-              <div className="w-4 bg-[#F28B82] h-[80%] rounded-t-sm"></div>
-              <div className="w-4 bg-matcha h-[60%] rounded-t-sm"></div>
+            <div className="flex space-x-2 items-end h-full transition-all duration-500">
+              <div
+                className="w-4 bg-[#F28B82] rounded-t-sm transition-all duration-500"
+                style={{ height: `${benchmarkData.memory_before}%` }}
+              ></div>
+              <div
+                className="w-4 bg-matcha rounded-t-sm transition-all duration-500"
+                style={{ height: `${benchmarkData.memory_after}%` }}
+              ></div>
             </div>
-            <div className="flex space-x-2 items-end h-full">
-              <div className="w-4 bg-[#F28B82] h-[90%] rounded-t-sm"></div>
-              <div className="w-4 bg-matcha h-[30%] rounded-t-sm"></div>
+            <div className="flex space-x-2 items-end h-full transition-all duration-500">
+              <div
+                className="w-4 bg-[#F28B82] rounded-t-sm transition-all duration-500"
+                style={{ height: `${benchmarkData.runtime_before}%` }}
+              ></div>
+              <div
+                className="w-4 bg-matcha rounded-t-sm transition-all duration-500"
+                style={{ height: `${benchmarkData.runtime_after}%` }}
+              ></div>
             </div>
           </div>
 
@@ -171,51 +257,22 @@ const MainDashboard = () => {
             Top Hotspots
           </h3>
           <div className="space-y-4">
-            {/* Hotspot Items */}
-            <div className="bg-parchment p-4 rounded-lg border border-black/5 flex justify-between items-center">
-              <div className="flex items-center">
-                <div className="w-2.5 h-2.5 bg-red-500 rounded-full mr-3"></div>
-                <span className="font-semibold text-onyx">
-                  Nested DB query loop
+            {hotspots.map((spot) => (
+              <div
+                key={spot.id}
+                className="bg-parchment p-4 rounded-lg border border-black/5 flex justify-between items-center"
+              >
+                <div className="flex items-center">
+                  <div
+                    className={`w-2.5 h-2.5 bg-${spot.color} rounded-full mr-3`}
+                  ></div>
+                  <span className="font-semibold text-onyx">{spot.name}</span>
+                </div>
+                <span className="bg-[#EBE5D9] px-3 py-1 text-xs font-mono text-onyx rounded-md">
+                  {spot.file}
                 </span>
               </div>
-              <span className="bg-[#EBE5D9] px-3 py-1 text-xs font-mono text-onyx rounded-md">
-                api/users/analytics.py:42
-              </span>
-            </div>
-            <div className="bg-parchment p-4 rounded-lg border border-black/5 flex justify-between items-center">
-              <div className="flex items-center">
-                <div className="w-2.5 h-2.5 bg-orange-400 rounded-full mr-3"></div>
-                <span className="font-semibold text-onyx">
-                  Redundant re-computation
-                </span>
-              </div>
-              <span className="bg-[#EBE5D9] px-3 py-1 text-xs font-mono text-onyx rounded-md">
-                services/report_gen.py:118
-              </span>
-            </div>
-            <div className="bg-parchment p-4 rounded-lg border border-black/5 flex justify-between items-center">
-              <div className="flex items-center">
-                <div className="w-2.5 h-2.5 bg-orange-400 rounded-full mr-3"></div>
-                <span className="font-semibold text-onyx">
-                  Unbounded cache growth
-                </span>
-              </div>
-              <span className="bg-[#EBE5D9] px-3 py-1 text-xs font-mono text-onyx rounded-md">
-                utils/cache_manager.py:25
-              </span>
-            </div>
-            <div className="bg-parchment p-4 rounded-lg border border-black/5 flex justify-between items-center">
-              <div className="flex items-center">
-                <div className="w-2.5 h-2.5 bg-yellow-400 rounded-full mr-3"></div>
-                <span className="font-semibold text-onyx">
-                  Inefficient JSON serialization
-                </span>
-              </div>
-              <span className="bg-[#EBE5D9] px-3 py-1 text-xs font-mono text-onyx rounded-md">
-                models/base.py:89
-              </span>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -280,7 +337,10 @@ const MainDashboard = () => {
               </svg>
               Patch Applied
             </button>
-            <button className="bg-matcha hover:bg-olive text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center">
+            <button
+              onClick={fetchLiveData}
+              className="bg-matcha hover:bg-olive text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
+            >
               <svg
                 className="w-5 h-5 mr-2"
                 fill="currentColor"
